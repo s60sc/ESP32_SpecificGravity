@@ -20,7 +20,7 @@ The ESP32 and GY-521 modules fit snugly into a 33mm width x 120mm height PETling
 ![image1](extras/device.png)
 
 
-Open the web page to view current data:
+Open the device web page to view current data:
 ![image1](extras/webpage.png)
 
 To calibrate device before first use:
