@@ -27,7 +27,7 @@ To calibrate device before first use:
 * Open ESP32 web page to get readings with periodic refresh
 * Balance device in PETling so reads c. 25 deg angle in plain water at 20C
 * Use hydrometer to measure SG for different sugar solutions to above your maximum wort original gravity
-* Record each device tilt angle and hydrometer reading in `angle_gravity` in `SGdata.h`.
+* Record each tilt angle and associated hydrometer reading in `angle_gravity` in `SGdata.h`.
 * More data points gives improved accuracy, order does not need to be sorted
 
 For subsequent use, adjust position of device in PETling so that it reads the same tilt angle in plain water at 20C as originally calibrated.
