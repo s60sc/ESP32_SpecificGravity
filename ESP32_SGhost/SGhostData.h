@@ -5,7 +5,7 @@ const char* index_html = R"~(
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>ESP32_SpecificGravity</title>
+    <title>ESP32_SGhost</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     <STYLE type="text/css">
       body {
@@ -42,6 +42,9 @@ const char* index_html = R"~(
   </head>
   <body>
     <table><tr>
+      <td>Time Stamp:</td>
+      <td id="0">Waiting</td>
+      </tr><tr>
       <th>Specific Gravity</th>
       <th>Temperature</th>
       </tr><tr>
@@ -53,20 +56,6 @@ const char* index_html = R"~(
       </tr><tr>
       <td id="1">Waiting</td>
       <td id="4">Waiting</td>
-      </tr><tr>
-      <th>Water Angle</th>
-      <th>Original Gravity</th>
-      </tr><tr>
-      <td id="6">Waiting</td>
-      <td><input type="text" id="3" readonly required/></td>
-      </tr><tr>
-      <td><input type="submit" id="SaveBtn" value="Save"/></td>
-      <td><input type="submit" name="OGedit" value="Set">
-      </tr><tr>
-      <td/><td/>
-      </tr><tr>
-      <td><input type="submit" id="StartBtn" value="Start"/></td>
-      <td><input type="submit" id="ResetBtn" value="Reset"/></td>
       </tr>
     </table>
     <script>
@@ -101,50 +90,8 @@ const char* index_html = R"~(
         }
         timeOut = setTimeout('updatePage()', refreshRate);  // re-request data at refreshRate interval in ms
       }
-      
-      function sendUpdates() {    
-        // get each input field and obtain field id/name and field value, return as JSON
-        var jarray = {};
-        $('input').each(function () {
-          if ($(this).attr('type') == "text") jarray[$(this).attr('id')] = $(this).val();
-          // for radio fields return value of radio button that is selected
-          if ($(this).attr('type') == "radio" && $(this).is(":checked")) 
-            jarray[$(this).attr('name')] = $('input[name="'+$(this).attr('name')+'"]:checked').val();
-          // for checkboxes set return to 1 if checked else 0
-          if ($(this).attr('type') == "checkbox")
-            jarray[$(this).attr('id')] = $(this).is(":checked") ? "1" : "0";
-        });
-        
-        var myData = $.ajax({
-          url : myUrl+'update',
-          type : 'POST',
-          contentType: "application/json",
-          data : JSON.stringify(jarray)
-        });
-        myData.error(function(xhr, status, errorThrown){ 
-          handleError(xhr, status, errorThrown);
-        });
-      }
-      
-      $('#SaveBtn').click(function() {
-        $.ajax({url: myUrl+"save"});
-      });
-      $('#StartBtn').click(function() {
-        $.ajax({url: myUrl+"start"});
-      });
-      $('#ResetBtn').click(function() {
-        $.ajax({url: myUrl+"reset"});
-      });
-      $('[name="OGedit"]').on('click', function() {
-        var prev = $('#3');
-        ro = prev.prop('readonly');
-        prev.prop('readonly', !ro).focus();
-        $(this).val(ro ? 'Save' : 'Set');
-        refresh = !refresh;
-        // if Save button pressed, send entered OG as json
-        if (refresh) sendUpdates(); 
-      });
     </script>
   </body>
 </html>
 )~";
+
