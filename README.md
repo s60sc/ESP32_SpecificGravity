@@ -25,8 +25,9 @@ To view current data and calibrate device before each use:
 * Open ESP32 web page to get readings with periodic refresh.
 * Balance device in PETling so reads c. 25 deg angle in plain water at 20C, then press __Save__ button under __Water Angle__ field.
 * Use hydrometer to measure the original gravity of the wort prior to fermentation.
+* Enter hydrometer value into __Original Gravity__ field, e.g. 1.045
 * Place device in wort and wait till settles, then press __Set__ button under __Original Gravity__ field.
-* Enter hydrometer value into __Original Gravity__ field, e.g. 1.045, then press button under __Original Gravity__ field.
+
 ![image1](extras/webpage.png)
 
 See comments in `ESP32_SpecificGravity.ino` for further details.
