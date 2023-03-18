@@ -1,1 +1,40 @@
-
+appId~ESP32_SG~99~T~na
+restart~~99~T~na
+ST_SSID~~0~T~Wifi SSID name
+ST_Pass~~0~T~Wifi SSID password
+ST_ip~~0~T~Static IP address
+ST_gw~~0~T~Router IP address
+ST_sn~255.255.255.0~0~T~Router subnet
+ST_ns1~~0~T~DNS server
+ST_ns2~~0~T~Alt DNS server
+AP_SSID~~0~T~AP SSID name
+AP_Pass~~0~T~AP Password
+AP_ip~~0~T~AP IP Address if not 192.168.4.1
+AP_sn~~0~T~AP subnet
+AP_gw~~0~T~AP gateway
+allowAP~1~0~C~Allow simultaneous AP
+Auth_Name~~0~T~Optional user name for web page login
+Auth_Pass~~0~T~Optional user name for web page password
+hostName~~0~T~Device host name
+wifiTimeoutSecs~30~0~N~WiFi connect timeout (secs)
+formatIfMountFailed~0~2~C~Format file system on failure
+allowSpaces~0~2~C~Allow whitespace in configs.txt
+pollRate~1~2~N~Sensor polling rate (secs)
+refreshVal~5~2~N~Web page refresh rate (secs)
+waterAngle~~99~N~Tilt angle in plain water
+OGangle~~99~N~Tilt angle for OG
+OGval~~99~N~OG value
+startMon~0~99~C~If monitoring started
+voltDivider~2~1~N~Voltage divider resistor ratio
+voltLow~3~1~N~Warning level for low voltage
+voltInterval~5~1~N~Voltage check interval (mins)
+voltPin~34~1~N~ADC Pin used for battery voltage
+voltUse~1~1~C~Use Voltage check
+I2C_SDA~21~1~N~I2C SDA pin
+I2C_SCL~22~1~N~I2C SCL pin
+wsServerHost~192.168.1.122~0~T~IP address of remote client
+hostInterval~10~0~N~Remote client update interval (secs)
+LED_PIN~5~1~N~Pin for awake blink led
+timeAsleep~1800~2~N~Time in deep sleep (secs) 
+timeAwake~30~2~N~Time awake (secs)
+MPU6050addr~0x69~1~T~I2C address of MPU6050 (hex)
