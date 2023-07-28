@@ -27,8 +27,9 @@ float temp = 0;
 static char hostURL[50];
 static bool startMon = false;
 static uint32_t awakeTime;
+#define WAKE_PIN 0 // boot button used to force wake and reset monitoring
 #define uS_TO_S_FACTOR 1000000 // Conversion factor for micro seconds to seconds 
-char SGdata[100];
+char SGdata[150];
 
 static void calculateSG() {
   // get data from MPU6050
@@ -59,6 +60,7 @@ static void generatePolynomial() {
   //  N = getPairVals(angle_gravity, " ", "\n", dp); // input from data file - not used
   // an array of size 2*PD+1 for storing N, Sig xi, Sig xi^2, etc. which are the independent components of the normal matrix
   double X[2*PD+1] = {0.0};  
+  dp[1] = 1.0; // SG of water
   for (i=0; i<=2*PD; i++) for (j=0; j<N; j++) X[i] += pow(dp[j*2],i);
 
   // rhs
@@ -106,7 +108,8 @@ static void sendHost() {
   http.setConnectTimeout(1000);
   http.begin(wclient, hostURL); 
   http.addHeader("Content-Type", "application/json");
-  int httpCode = http.POST(SGdata);
+  http.POST(SGdata);
+////  int httpCode = http.POST(SGdata);
 ////  if (httpCode != HTTP_CODE_OK) LOG_WRN("Host (%s) failure: %d:%s", hostURL, httpCode, 
 ////    http.errorToString(httpCode).c_str());
   http.end();
@@ -114,15 +117,19 @@ static void sendHost() {
 
 void doDeepSleep() {
   digitalWrite(LED_PIN, 0);
-  esp_sleep_enable_timer_wakeup(timeAsleep * uS_TO_S_FACTOR);
+  esp_sleep_enable_timer_wakeup(timeAsleep * 60 * uS_TO_S_FACTOR); // in minutes
   sleepMPU6050();
-  goToSleep(-1, true);
+  goToSleep(WAKE_PIN, true);
 }
 
 void SGsetup() {
-  print_wakeup_reason();
+  if (wakeupResetReason() == ESP_SLEEP_WAKEUP_EXT0) {
+    updateStatus("startMon", "0"); // boot button pressed
+    updateStatus("save", "1");
+  }
   prepPeripherals();
   startI2C();
+  if (!checkMPU6050()) LOG_WRN("MPU6050 not available");
   // setup battery monitoring 
   float voltage = readVoltage();
   LOG_INF("Battery voltage: %0.1f", voltage);
@@ -132,10 +139,6 @@ void SGsetup() {
     delay(2000); 
     doDeepSleep();
   }
-  
-  // generate polynomial coefficients for tilt angle / specific gravity correlation
-  dp[1] = 1.0; // SG of water
-  generatePolynomial();
   
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, 0);
@@ -155,8 +158,7 @@ void SGloop() {
   float voltage = readVoltage();
   calculateSG();
   // build json string to send to remote host and local web server
-  sprintf(SGdata, "{\"tilt\":\"%0.1f\",\"SG\":\"%0.4f\",\"temp\":\"%0.1f\",\"batt\":\"%0.2f\",\"water\":\"%0.1f\",\"getTime\":\"1\"}", tiltAngle, specificGravity, temp, voltage, dp[0]);
-
+  snprintf(SGdata, sizeof(SGdata)-1, "{\"tilt\":\"%0.1f\",\"SG\":\"%0.4f\",\"temp\":\"%0.1f\",\"batt\":\"%0.2f\",\"water\":\"%0.1f\",\"getTime\":\"1\",\"sg_rssi\":\"%d dbm\"}", tiltAngle, specificGravity, temp, voltage, dp[0], WiFi.RSSI());
   // check if time to sleep
   if (startMon && (millis()-awakeTime)/1000 > timeAwake) doDeepSleep();
 
@@ -167,18 +169,29 @@ void SGloop() {
   }
 }
 
-/*********************************************************************************/
+void displayValuesOled(int inDispIndex, bool dispChanged) {}
+
+bool externalPeripheral(byte pinNum, uint32_t outputData) {
+  return false;
+}
+
+void prepUart() {}
+
+
+/************************ webServer callbacks *************************/
 
 bool updateAppStatus(const char* variable, const char* value) {
   // update vars from browser input
   bool res = true; 
   int intVal = atoi(value);
   float fltVal = atof(value);
-  if (!strcmp(variable, "waterAngle")) dp[0] = fltVal; // water tilt angle
-  else if (!strcmp(variable, "OGangle")) dp[2] = fltVal; // OG tilt angle
-  else if (!strcmp(variable, "OGval")) {
-    dp[3] = fltVal; // OG input value
-    generatePolynomial();
+  if (!strcmp(variable, "custom")) return res;
+  else if (!strcmp(variable, "waterAngle")) dp[0] = fltVal; // water tilt angle
+  else if (!strcmp(variable, "OGval")) dp[3] = fltVal; // OG input value
+  else if (!strcmp(variable, "OGangle")) {
+    // generate polynomial coefficients for tilt angle / specific gravity correlation
+    dp[2] = fltVal; // OG tilt angle
+    generatePolynomial(); 
   }
   else if (!strcmp(variable, "startMon")) startMon = bool(intVal); // start monitoring
   else if (!strcmp(variable, "voltUse")) voltUse = (bool)intVal;
@@ -242,14 +255,6 @@ bool appDataFiles() {
   return true;
 }
 
-void OTAprereq() {}
-
 void doAppPing() {}
 
-void displayValuesOled(int inDispIndex, bool dispChanged) {}
-
-bool externalPeripheral(byte pinNum, uint32_t outputData) {
-  return false;
-}
-
-void prepUart() {}
+void OTAprereq() {}

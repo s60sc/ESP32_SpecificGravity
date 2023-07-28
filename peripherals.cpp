@@ -24,9 +24,6 @@
 
 #include "appGlobals.h"
 
-// following peripheral requires additional libraries: OneWire and DallasTemperature
-//#define INCLUDE_DS18B20 // uncomment to include DS18B20 temp sensor if fitted
-
 // IO Extender use
 bool useIOextender; // true to use IO Extender, otherwise false
 bool useUART0; // true to use UART0, false for UART1
@@ -40,10 +37,13 @@ bool pirUse; // true to use PIR for motion detection
 bool lampUse; // true to use lamp
 uint8_t lampLevel; // brightness of on board lamp led 
 bool lampAuto; // if true in conjunction with pirUse & lampUse, switch on lamp when PIR activated at night
+bool lampNight; // if true, lamp comes on at night (not used)
+int lampType; // how lamp is used
 bool servoUse; // true to use pan / tilt servo control
 bool voltUse; // true to report on ADC pin eg for for battery
 // microphone cannot be used on IO Extender
 bool micUse; // true to use external I2S microphone 
+bool wakeUse = false; // true to allow app to sleep and wake
 
 // Pins used by peripherals
 
@@ -55,13 +55,14 @@ bool micUse; // true to use external I2S microphone
 // sensors 
 int pirPin; // if pirUse is true
 int lampPin; // if lampUse is true
+int wakePin; // if wakeUse is true
 
 // Pan / Tilt Servos 
 int servoPanPin; // if servoUse is true
 int servoTiltPin;
 
 // ambient / module temperature reading 
-int ds18b20Pin; // if INCLUDE_DS18B20 uncommented
+int ds18b20Pin; // if USE_DS18B20 true
 
 // batt monitoring 
 // only pin 33 can be used on ESP32-Cam module as it is the only available analog pin
@@ -191,7 +192,7 @@ static void prepServos() {
     If DS18B20 is not present, use ESP internal temperature sensor
 */
 
-#ifdef INCLUDE_DS18B20
+#if USE_DS18B20
 #include <OneWire.h> 
 #include <DallasTemperature.h>
 #endif
@@ -211,7 +212,7 @@ TaskHandle_t DS18B20handle = NULL;
 static bool haveDS18B20 = false;
 
 static void DS18B20task(void* pvParameters) {
-#ifdef INCLUDE_DS18B20
+#if USE_DS18B20
   // get current temperature from DS18B20 device
   OneWire oneWire(ds18b20Pin);
   DallasTemperature sensors(&oneWire);
@@ -237,7 +238,7 @@ static void DS18B20task(void* pvParameters) {
 }
 
 void prepTemperature() {
-#if defined(INCLUDE_DS18B20)
+#if USE_DS18B20
   if (ds18b20Pin < EXTPIN) {
     if (ds18b20Pin) {
       size_t stacksize = 1024;
@@ -261,7 +262,7 @@ void prepTemperature() {
 
 float readTemperature(bool isCelsius) {
   // return latest read temperature value in celsius (true) or fahrenheit (false), unless error
-#if defined(INCLUDE_DS18B20)
+#if USE_DS18B20
   // use external DS18B20 sensor if available, else use local value
   externalPeripheral(ds18b20Pin);
 #endif
@@ -296,11 +297,11 @@ float readVoltage()  {
 static void battTask(void* parameter) {
   if (voltInterval < 1) voltInterval = 1;
   while (true) {
-    static bool sentEmailAlert = false;
     // convert analog reading to corrected voltage.  analogReadMilliVolts() not working
     currentVoltage = (float)(smoothAnalog(voltPin)) * 3.3 * voltDivider / pow(2, ADC_BITS);
 
 #ifdef INCLUDE_SMTP
+    static bool sentEmailAlert = false;
     if (currentVoltage < voltLow && !sentEmailAlert) {
       sentEmailAlert = true; // only sent once per esp32 session
       smtpBufferSize = 0; // no attachment
@@ -348,7 +349,7 @@ static void setupLamp() {
       LOG_INF("Setup Lamp Led for ESP32 Cam board");
 
 #elif defined(CAMERA_MODEL_ESP32S3_EYE)
-      // Single WS2812 RGB high intensity led
+      // Single WS2812 RGB high intensity led on pin 48
       rmtWS2812 = rmtInit(lampPin, true, RMT_MEM_64);
       if (rmtWS2812 == NULL) LOG_ERR("Failed to setup WS2812 with pin %u", lampPin);
       else {
@@ -370,9 +371,9 @@ static void setupLamp() {
 
 void setLamp(uint8_t lampVal) {
   // control lamp status
-  if (lampUse) {
-    if (!lampInit) setupLamp();
-    if (!lampUse) return;
+  if (!lampUse) lampVal = 0;
+  if (!lampInit) setupLamp();
+  if (lampInit) {
 #if defined(CAMERA_MODEL_AI_THINKER)
     // set lamp brightness using PWM (0 = off, 15 = max)
     if (!externalPeripheral(lampPin, lampVal)) ledcWrite(LAMP_LEDC_CHANNEL, lampVal);

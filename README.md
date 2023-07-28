@@ -28,7 +28,8 @@ To view current data and calibrate device before each use:
 * Enter hydrometer value into __Original Gravity__ field, e.g. 1.045.
 * Place device in wort and wait till angle settles, then press __Set OG__ button to set upper range of curve.
 * Press __Start__ button to start monitoring, device will go to sleep
-* Press __Reset__ to reenter calibration mode
+* Press __Reset__ to reenter calibration mode.  
+  If the device is in deep sleep, pressing boot button has same effect.
 
 ![image1](extras/webpage.png)
 

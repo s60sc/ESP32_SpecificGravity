@@ -8,10 +8,10 @@
 //
 // Connections:
 // MPU6050  ESP32
-// ADO      3V3
-// SDA      GPIO 21 (green)
-// SCL      GPIO 22 (yellow)
-// VCC      3V3 (white)
+// ADO      GND
+// SDA‎ ‎     GPIO 21 (green)
+// SCL‎      ‎GPIO 22 (yellow)
+// VCC‎      3V3 (white)
 // GND      GND (brown)
 //
 // Check accelerometer works properly (can be faulty), by checking that 
@@ -20,6 +20,8 @@
 // The battery voltage to be measured needs to go thru a voltage divider comprising 
 // two equal high value resistors to keep voltage below 3V3 at the ADC pin.
 //
+// s60sc 2020
+
 // s60sc 2018, 2023
 
 #include "appGlobals.h"
@@ -50,5 +52,5 @@ void setup() {
 }
 
 void loop() {
-  SGloop();
+  if (startedUp) SGloop();
 }

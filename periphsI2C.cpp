@@ -5,6 +5,7 @@
 // PCF8591 ADC
 // BMP280 temperature & pressure
 // DS3231 RTC
+// LCD 1602 display 2*16 
 // MPU6050 6 axis accel & gyro
 //
 // s60sc 2023
@@ -39,16 +40,17 @@ RtcDS3231<TwoWire> Rtc(Wire);
 #include "driver/rtc_io.h"
 
 // global constants
+int I2C_SDA;
+int I2C_SCL;
 const bool flipOled = false; // true if oled pins oriented above display
 const uint8_t dispMax = 3;  // number of different oled display frames
 float sensorsVals[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; 
 static volatile bool RTCalarmFlag = false;
-int I2C_SDA = 21;
-int I2C_SCL = 22;
 int MPU6050addr = 0x69; // MPU6050 I2C address if AD0 pulled high, 0x68 if AD0 grounded
 
 static byte I2CDATA[10]; // store I2C data received or to be sent 
 // I2C device names, indexed by address
+static bool deviceStatus[128] = {false}; // whether device present
 static const char* clientName[128] = {
   "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
   "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -66,9 +68,8 @@ struct tempHumid { // used by BMP280 & DHT11
   float dewpoint; // temp at which condensation occurs
 };
 
-void checkI2C();
-bool sendI2Cdata(int clientAddr, uint8_t controlByte, uint8_t numBytes); 
-bool getI2Cdata (uint8_t clientAddr, uint8_t controlByte, uint8_t numBytes);
+static bool oledOK = false;
+static bool MPU6050ok = false;
 
 /***************************************** OLED Display *************************************/
 
@@ -90,19 +91,21 @@ void oledLine(const char* msg, int hpos, int vpos, int msgwidth, int fontsize) {
   // to avoid flicker, only call periodically
   // args: message string, horizontal pixel start, vertical pixel start, width to clear, font type
   // clear original line
-  oled.setTextAlignment(TEXT_ALIGN_LEFT);
-  oled.setColor(BLACK);
-  oled.fillRect(hpos, vpos, msgwidth, fontsize*5/4); // allow for tails on fonts
-  // display given text, fontsizes are 10, 16, 24, starting at horiz pixel hpos & vertical pixel vpos
-  oled.setFont(ArialMT_Plain_10);
-  if (fontsize == 16) oled.setFont(ArialMT_Plain_16);
-  if (fontsize == 24) oled.setFont(ArialMT_Plain_24);
-  oled.setColor(WHITE);
-  oled.drawString(hpos, vpos, msg);
+  if (oledOK) {
+    oled.setTextAlignment(TEXT_ALIGN_LEFT);
+    oled.setColor(BLACK);
+    oled.fillRect(hpos, vpos, msgwidth, fontsize*5/4); // allow for tails on fonts
+    // display given text, fontsizes are 10, 16, 24, starting at horiz pixel hpos & vertical pixel vpos
+    oled.setFont(ArialMT_Plain_10);
+    if (fontsize == 16) oled.setFont(ArialMT_Plain_16);
+    if (fontsize == 24) oled.setFont(ArialMT_Plain_24);
+    oled.setColor(WHITE);
+    oled.drawString(hpos, vpos, msg);
+  }
 #endif
 }
 
-void tellTale() {
+static void tellTale() {
 #if (USE_SSD1306) 
   static bool ledState = false;
   ledState = !ledState;
@@ -113,14 +116,16 @@ void tellTale() {
 
 void oledDisplay() {
 #if (USE_SSD1306) 
-////  tellTale();   // oled telltale
-  oled.display();
+  if (oledOK) {
+////    tellTale();   // oled telltale
+    oled.display();
+  }
 #endif
 }
 
-void oledInit() {
+static bool oledInit() {
 #if (USE_SSD1306) 
-  /* s60sc added setAddress() method to SSD1306Wire.h library
+  /* s60sc added setAddress() method to local SSD1306Wire.h library
    under public:
     void setAddress(uint8_t _address, int _sda, int _scl) {
       this->_address = _address;
@@ -128,11 +133,15 @@ void oledInit() {
       this->_scl = _scl;
     }
   */
+  if (!deviceStatus[SSD1306_BIaddr]) return false;
   oled.end();
   oled.setAddress(SSD1306_BIaddr, I2C_SDA, I2C_SCL);
-  oled.init();
-  if (flipOled) oled.flipScreenVertically();
+  if (oled.init()) {
+    if (flipOled) oled.flipScreenVertically();
+    return true;
+  }
 #endif
+  return false;
 }
 
 void finalMsg(const char* finalTxt) {
@@ -148,7 +157,7 @@ void finalMsg(const char* finalTxt) {
 void changeDisplay() {
 #if (USE_SSD1306) 
   // switch between different screens
-  oledInit();  // in case oled display has been plugged in
+  oledOK = oledInit();  // in case oled display has been plugged in
   static int dispIndex = 0; 
   dispIndex++;
   if (dispIndex >= dispMax) dispIndex = 0;
@@ -224,14 +233,16 @@ void checkBMP() {
 
 double* readMPU6050() {
   // get data from MPU6050 
-  static double Gforce[4];
-  if (getI2Cdata(MPU6050addr, ACCEL_XOUT_H, ACCEL_BYTES+2)) { 
-    // read 3 axis accelerometer & temperature
-    int16_t raw[4]; // X, Y, Z, Temp
-    for (int i=0; i<4; i++) raw[i] = I2CDATA[i*2] << 8 | I2CDATA[(i*2)+1]; 
-    // each axis G force value, straight down is 1.0 if stationary
-    for (int i=0; i<3; i++) Gforce[i] = raw[i] / SENS_2G;
-    Gforce[3] = ((double)raw[3] / 340.0) + 36.53; // degrees celsius
+  static double Gforce[4] = {0};
+  if (MPU6050ok) {
+    if (getI2Cdata(MPU6050addr, ACCEL_XOUT_H, ACCEL_BYTES+2)) { 
+      // read 3 axis accelerometer & temperature
+      int16_t raw[4]; // X, Y, Z, Temp
+      for (int i=0; i<4; i++) raw[i] = I2CDATA[i*2] << 8 | I2CDATA[(i*2)+1]; 
+      // each axis G force value, straight down is 1.0 if stationary
+      for (int i=0; i<3; i++) Gforce[i] = raw[i] / SENS_2G;
+      Gforce[3] = ((double)raw[3] / 340.0) + 36.53; // degrees celsius
+    }
   }
   return Gforce;
 }
@@ -243,16 +254,17 @@ bool sleepMPU6050(bool doSleep) {
   return sendI2Cdata(MPU6050addr, PWR_MGMT_1, 1);
 }
 
-static bool checkMPU6050() {
-  // set full range
-  static bool haveMPU = false;
-  if (!haveMPU) {
-    I2CDATA[0] = 0x00;
-    haveMPU = sendI2Cdata(MPU6050addr, CONFIG, 1);
+bool checkMPU6050() {
+#if USE_MPU6050
+  if (deviceStatus[MPU6050addr]) {
+    // set full range
+    I2CDATA[0] = 0x00; 
+    MPU6050ok = sendI2Cdata(MPU6050addr, CONFIG, 1);
     // wakeup the sensor 
-    sleepMPU6050(false);
-  } 
-  return haveMPU;
+    if (MPU6050ok ) sleepMPU6050(false);
+  } else MPU6050ok = false;
+#endif
+  return MPU6050ok;
 }
 
 /********************************* DS3231 RTC ************************************/
@@ -384,7 +396,199 @@ void RTCdatetime(char* datestring, int datestringLen) {
 }
 
 
-/******************************** Generic I2C Utilities *********************************/
+/**************************** LCD1602 ******************************/
+// I2C LCD display: 2 lines, 16 cols 
+// Derived from https://github.com/arduino-libraries/LiquidCrystal
+
+// commands
+#define LCD_CLEARDISPLAY 0x01
+#define LCD_RETURNHOME 0x02
+#define LCD_ENTRYMODESET 0x04
+#define LCD_DISPLAYCONTROL 0x08
+#define LCD_CURSORSHIFT 0x10
+#define LCD_FUNCTIONSET 0x20
+#define LCD_SETCGRAMADDR 0x40
+#define LCD_SETDDRAMADDR 0x80
+
+// flags for display entry mode
+#define LCD_ENTRYRIGHT 0x00
+#define LCD_ENTRYLEFT 0x02
+#define LCD_ENTRYSHIFTINCREMENT 0x01
+#define LCD_ENTRYSHIFTDECREMENT 0x00
+
+// flags for display on/off control
+#define LCD_DISPLAYON 0x04
+#define LCD_DISPLAYOFF 0x00
+#define LCD_CURSORON 0x02
+#define LCD_CURSOROFF 0x00
+#define LCD_BLINKON 0x01
+#define LCD_BLINKOFF 0x00
+
+// flags for display/cursor shift
+#define LCD_DISPLAYMOVE 0x08
+#define LCD_CURSORMOVE 0x00
+#define LCD_MOVERIGHT 0x04
+#define LCD_MOVELEFT 0x00
+
+// flags for function set
+#define LCD_8BITMODE 0x10
+#define LCD_4BITMODE 0x00
+#define LCD_2LINE 0x08
+#define LCD_1LINE 0x00
+#define LCD_5x10DOTS 0x04
+#define LCD_5x8DOTS 0x00
+
+// flags for backlight control
+#define LCD_BACKLIGHT 0x08
+#define LCD_NOBACKLIGHT 0x00
+
+#define En B00000100  // Enable bit
+#define Rw B00000010  // Read/Write bit
+#define Rs B00000001  // Register select bit
+
+#define NUM_ROWS 2
+#define NUM_COLS 16
+
+static uint8_t displaycontrol;
+static uint8_t displaymode;
+static uint8_t backlightval;
+
+static void lcdWrite(uint8_t data) {
+  I2CDATA[0] = data | backlightval;
+  sendI2Cdata(LCD1602, 0, 1); 
+}
+
+static void writeNibble(uint8_t value) {
+	lcdWrite(value);
+	lcdWrite(value | En);	  // En high
+	delayMicroseconds(1);		// pulse
+	lcdWrite(value & ~En);	// En low
+	delayMicroseconds(50);	// commands need > 37us to settle
+}
+
+static void lcdSend(uint8_t value, uint8_t mode = 0) {
+  // write either command (mode = 0) or data, as two 4 bit values
+  writeNibble((value & 0xf0) | mode);
+	writeNibble(((value << 4 ) & 0xf0) | mode); 
+}
+
+void lcdBacklight(onoffType lightOn) {
+  // Turn the backlight on / off
+  backlightval = (lightOn == ON) ? LCD_BACKLIGHT : LCD_NOBACKLIGHT;
+  lcdWrite(backlightval);
+}
+
+void lcdClear() {
+  // clear display, set cursor position to zero
+  lcdSend(LCD_CLEARDISPLAY);
+  delayMicroseconds(2000);  
+}
+
+void lcdDisplay(onoffType setDisplay) {
+  // Turn the display on / off (not backlight)
+  if (setDisplay == ON) displaycontrol |= LCD_DISPLAYON;
+  else displaycontrol &= ~LCD_DISPLAYON;
+  lcdSend(LCD_DISPLAYCONTROL | displaycontrol);
+}
+
+bool lcdInit() {  
+  if (!deviceStatus[LCD1602]) return false;
+	uint8_t displayfunction = LCD_4BITMODE | LCD_2LINE | LCD_5x8DOTS;
+
+ 	// can only use 4 bit mode with PCF8574 as not enough pins for HD44780 8 bit.
+  // use magic sequence to set it  
+  writeNibble(0x03 << 4);
+  delayMicroseconds(4500); 
+  writeNibble(0x03 << 4);
+  delayMicroseconds(4500); 
+  writeNibble(0x03 << 4); 
+  delayMicroseconds(150);
+  writeNibble(0x02 << 4); 
+
+	// set initial display format
+	lcdSend(LCD_FUNCTIONSET | displayfunction);  
+	displaycontrol = LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF;               
+  lcdBacklight(ON);  
+	lcdDisplay(ON);
+	lcdClear();
+	displaymode = LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT;
+	lcdSend(LCD_ENTRYMODESET | displaymode);  
+  return true;
+}
+
+void lcdPrint(const char* str) {
+  // write string to lcd
+	for (int i=0; i<strlen(str); i++) lcdSend((uint8_t)str[i], Rs);
+}
+
+void lcdHome() {
+  // set cursor position to zero
+	lcdSend(LCD_RETURNHOME);  
+	delayMicroseconds(2000); 
+}
+
+void lcdSetCursorPos(uint8_t row, uint8_t col) {
+  // set row and col of cursor position
+	int row_offsets[] = {0x00, 0x40, 0x14, 0x54}; 
+  if (row > NUM_ROWS) row = NUM_ROWS - 1;
+  if (col > NUM_COLS) col = NUM_COLS - 1;
+	lcdSend(LCD_SETDDRAMADDR | (col + row_offsets[row]));
+}
+
+void lcdLineCursor(onoffType showLine) {
+  // Turn the underline cursor on / off
+  if (showLine == ON) displaycontrol |= LCD_CURSORON;
+  else displaycontrol &= ~LCD_CURSORON;
+	lcdSend(LCD_DISPLAYCONTROL | displaycontrol);
+}
+
+void lcdBlinkCursor(onoffType showBlink) {
+  // Turn the blinking cursor on / off
+  if (showBlink == ON) displaycontrol |= LCD_BLINKON;
+  else displaycontrol &= ~LCD_BLINKON;
+	lcdSend(LCD_DISPLAYCONTROL | displaycontrol);
+}
+
+void lcdScrollText(lfType scrolling) {
+  // scroll the current display left or right one position (no wrapping)
+  uint8_t moveDir = (scrolling == RIGHT) ? LCD_MOVERIGHT : LCD_MOVELEFT;
+  lcdSend(LCD_CURSORSHIFT | LCD_DISPLAYMOVE | moveDir);
+}
+
+void lcdTextDirection(lfType textDir) {
+  // write text forward or backward from cursor 
+  if (textDir == RIGHT) displaymode |= LCD_ENTRYLEFT;
+  else displaymode &= ~LCD_ENTRYLEFT;
+	lcdSend(LCD_ENTRYMODESET | displaymode);
+}
+
+void lcdAutoScroll(onoffType autoScroll) {
+  // As each character entered at cursor, scroll previous text left
+	if (autoScroll == ON) displaymode |= LCD_ENTRYSHIFTINCREMENT; 
+  else displaymode &= ~LCD_ENTRYSHIFTINCREMENT; 
+	lcdSend(LCD_ENTRYMODESET | displaymode);
+}
+
+void lcdLoadCustom(customChar charLoc, uint8_t charmap[]) {
+  // Load custom character
+  // To create, see https://maxpromer.github.io/LCD-Character-Creator/
+  // array of 8 lines of 5 bits, where bits represent pixel on / off
+  // eg define & load custom char (degrees celsius symbol)
+  // uint8_t celsius[] = {B01000, B10100, B01011, B00100, B00100, B00100, B00011, B00000};
+  // lcdLoadCustom(CELSIUS, celsius);
+  uint8_t _charLoc = (uint8_t)charLoc;
+	_charLoc &= 0x7; // CGRAM location to load 0 - 7
+	lcdSend(LCD_SETCGRAMADDR | (_charLoc << 3));
+	for (int i=0; i<8; i++)	lcdSend(charmap[i], Rs);
+}
+
+void lcdWriteCustom(customChar charLoc) {
+  // write one of 8 custom chars 
+  lcdSend((uint8_t)charLoc, Rs);
+}
+
+
+/********************* Generic I2C Utilities ***********************/
 
 static bool sendTransmission(int clientAddr, bool scanning) {
   // common function used to send request to I2C device and determine outcome
@@ -395,16 +599,12 @@ static bool sendTransmission(int clientAddr, bool scanning) {
       4: other error, e.g. switched off 
       5: i2c busy 
       8: unknown pcf8591 status */
-
-  bool fatal = (result == 4) ? true : false; // client is not available, e.g switched off
-  if (result > 0 && result < 8) {
-    if (!(result == 2 && !scanning)) LOG_ERR("client %s at 0x%x with connection error: %d", clientName[clientAddr], clientAddr, result);
-    if (fatal) doRestart("Fatal I2C error");
-  }
+      
+  if (!scanning && result > 0) LOG_ERR("Client %s at 0x%x with connection error: %d", clientName[clientAddr], clientAddr, result);
   return (result == 0) ? true : false;
 }
 
-void scanI2C() {
+static bool scanI2C() {
   // find details of any active I2C devices
   byte address;
   int nDevices;
@@ -413,25 +613,36 @@ void scanI2C() {
   for (address = 0; address < 127; address++) {
     Wire.beginTransmission(address);
     // only report error if client device meant to be present
-    if (sendTransmission(address, false)) {
+    if (sendTransmission(address, true)) {
       LOG_INF("I2C device %s present at address: 0x%x", clientName[address], address);
       nDevices++;
+      deviceStatus[address] = true;
     }
   }
-  if (nDevices == 0) LOG_INF("No I2C devices found");
+  if (nDevices == 0) {
+    LOG_INF("No I2C devices found");
+    return false;
+  }
+  return true;
 }
 
-void startI2C() {
-  Wire.begin(I2C_SDA, I2C_SCL); // join i2c bus as master 
-  scanI2C(); // list I2C devices available
-  checkI2C(); // start devices
+bool startI2C() {
+  if (I2C_SDA == I2C_SCL) LOG_ALT("I2C pins not defined");
+  else {
+    Wire.begin(I2C_SDA, I2C_SCL); // join i2c bus as master 
+    // list I2C devices available
+    if (scanI2C()) checkI2C(); // start devices
+    else return false;
+    return true;
+  }
+  return false;
 }
 
 void checkI2C() {
   // regularly check if connected I2C devices available
   checkBMP();
   checkMPU6050();
-  oledInit();
+  oledOK = oledInit();
 }
 
 bool getI2Cdata (uint8_t clientAddr, uint8_t controlByte, uint8_t numBytes) {
@@ -456,7 +667,7 @@ bool sendI2Cdata(int clientAddr, uint8_t controlByte, uint8_t numBytes) {
   // controlByte is the control instruction
   // numBytes is number of bytes to send
   Wire.beginTransmission(clientAddr);
-  Wire.write(controlByte);
+  if (controlByte) Wire.write(controlByte);
   for (int i=numBytes-1; i>=0; i--) Wire.write(I2CDATA[i]);
   return sendTransmission(clientAddr, false);
 }
