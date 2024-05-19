@@ -30,8 +30,8 @@ static bool startedUp = false;
 
 void setup() {
   logSetup();
-  startStorage();
-  loadConfig();
+  // prep SD card storage & load saved user configuration
+  if (startStorage()) loadConfig();
 
 #ifdef DEV_ONLY
   devSetup();
@@ -44,9 +44,7 @@ void setup() {
   if (strlen(startupFailure)) LOG_ERR("%s", startupFailure);
   else {
     // start rest of services
-    SGsetup();
-    LOG_INF(APP_NAME " v" APP_VER " ready ...");
-    startedUp = true;
+    if (SGsetup()) startedUp = true;
     checkMemory();
   }
 }
