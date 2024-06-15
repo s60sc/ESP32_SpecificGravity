@@ -584,7 +584,7 @@
           else if (key == "startMon") setReadOnly(value, false);
           else if (key == "OGvalue") sendControl("OGval", value);
           else if (key == "OGset") setOG();
-          // prevent user entry being overwritten by app refresh { if ($('#OGvalue').readOnly) 
+          // prevent user entry being overwritten by app refresh
           else if (key == "OGval") $('#OGvalue').value = value; 
           // remaining changes are passed thru to app
           else if (fromUser) sendControl(key, value); 
