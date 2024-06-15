@@ -23,7 +23,7 @@
 #define HOSTNAME_GRP 0
 
 #define APP_NAME "ESP32_SG" // max 15 chars
-#define APP_VER "2.2"
+#define APP_VER "2.3"
 
 #define HTTP_CLIENTS 2 // http, ws
 #define MAX_STREAMS 0
@@ -101,7 +101,6 @@
 #define USE_PCF8591 false
 #define USE_MPU6050 true
 
-#define NULL_TEMP -127.0
 #define FILE_EXT ""
 
 
@@ -117,6 +116,7 @@ float* getBMP280();
 bool checkI2Cdevices(bool showWarn = false);
 bool startI2C();
 void setLamp(uint8_t lampVal);
+void stepperDone();
 
 /******************** Global app declarations *******************/
 

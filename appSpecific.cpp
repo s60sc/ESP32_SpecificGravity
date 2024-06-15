@@ -11,7 +11,6 @@ const char* cacert_pem = "";
 
 #define PD 1 // degrees of polynomial, for this implementation, only first order is used 
 
-static char* p;
 static char wsServerHost[16]; // host address (eg ESP32_SGhost)
 static int hostInterval = 10; // interval in seconds to notify Host when awake
 static int LED_PIN = 5;
@@ -144,7 +143,7 @@ bool SGsetup() {
     // deep sleep setup
     awakeTime = millis();
   } else {
-    LOG_ERR("Unable to start monitoring");
+    LOG_WRN("Unable to start monitoring");
     res = false;
   }
 
@@ -271,6 +270,9 @@ void doAppPing() {}
 
 void OTAprereq() {
   stopPing();
+}
+
+void stepperDone() {
 }
 
 /************** default app configuration **************/

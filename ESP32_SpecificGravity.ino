@@ -30,7 +30,7 @@ static bool startedUp = false;
 
 void setup() {
   logSetup();
-  // prep SD card storage & load saved user configuration
+  // prep storage & load saved user configuration
   if (startStorage()) loadConfig();
 
 #ifdef DEV_ONLY
@@ -41,7 +41,7 @@ void setup() {
   startWifi(); 
   
   startWebServer();
-  if (strlen(startupFailure)) LOG_ERR("%s", startupFailure);
+  if (strlen(startupFailure)) LOG_WRN("%s", startupFailure);
   else {
     // start rest of services
     if (SGsetup()) startedUp = true;
