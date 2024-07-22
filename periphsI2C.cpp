@@ -182,7 +182,7 @@ void finalMsg(const char* finalTxt) {
     thisOled->resetDisplay();
     oledLine(finalTxt,0,0,128,16);
     thisOled->display();
-    delay(2000);
+    delay(2000); //// keep tag displayed
   }
 #endif
 }
@@ -605,6 +605,12 @@ void lcdClear() {
   delayMicroseconds(2000);  
 }
 
+void lcdHome() {
+  // set cursor position to zero
+  lcdSend(LCD_RETURNHOME);  
+  delayMicroseconds(2000); 
+}
+
 void lcdDisplay(bool setDisplay) {
   // Turn the display on / off (not backlight)
   if (setDisplay) displaycontrol |= LCD_DISPLAYON;
@@ -615,27 +621,34 @@ void lcdDisplay(bool setDisplay) {
 static bool setupLCD1602(bool showWarn) {  
   if (USE_LCD1602 && !LCD1602ok) {
     if (deviceStatus[LCD1602]) {
-      uint8_t displayfunction = LCD_4BITMODE | LCD_2LINE | LCD_5x8DOTS;
-
+      LCD1602ok = true;
+      delay(50); 
+      lcdBacklight(false);
+      delay(1000);
+  
       // can only use 4 bit mode with PCF8574 as not enough pins for HD44780 8 bit.
-      // use magic sequence to set it  
+      // use magic sequence to set it
       writeNibble(0x03 << 4);
-      delayMicroseconds(4500); 
+      delayMicroseconds(4500); // wait min 4.1ms
       writeNibble(0x03 << 4);
-      delayMicroseconds(4500); 
-      writeNibble(0x03 << 4); 
+      delayMicroseconds(4500); // wait min 4.1ms
+      writeNibble(0x03 << 4);
       delayMicroseconds(150);
-      writeNibble(0x02 << 4); 
-
-      // set initial display format
-      lcdSend(LCD_FUNCTIONSET | displayfunction);  
-      displaycontrol = LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF;               
-      lcdBacklight(true);  
+      writeNibble(0x02 << 4);
+    
+       // set initial display format
+      lcdSend(LCD_FUNCTIONSET | LCD_4BITMODE | LCD_2LINE | LCD_5x8DOTS);  
+      
+      // turn on display and clear content
+      displaycontrol = LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF; 
       lcdDisplay(true);
       lcdClear();
+      
+      // set the entry mode and set cursor position to top left
       displaymode = LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT;
-      lcdSend(LCD_ENTRYMODESET | displaymode);  
-      LCD1602ok = true;
+      lcdSend(LCD_ENTRYMODESET | displaymode); 
+      lcdHome();
+      lcdBacklight(true); 
     } else LCD1602ok = false;
     if (!LCD1602ok && showWarn) LOG_WRN("LCD1602 display not available");
   }
@@ -645,12 +658,6 @@ static bool setupLCD1602(bool showWarn) {
 void lcdPrint(const char* str) {
   // write string to lcd
 	for (int i=0; i<strlen(str); i++) lcdSend((uint8_t)str[i], Rs);
-}
-
-void lcdHome() {
-  // set cursor position to zero
-	lcdSend(LCD_RETURNHOME);  
-	delayMicroseconds(2000); 
 }
 
 void lcdSetCursorPos(uint8_t row, uint8_t col) {

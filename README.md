@@ -18,7 +18,7 @@ The ESP32 will then periodically wakeup to collect data and send this to the rem
 
 Download github files into the Arduino IDE sketch folder, removing `-main` from the application folder name.
 
-Compile using arduino core v2.x or V3.x with PSRAM enabled and the following Partition scheme:
+Compile using arduino core v2.x or V3.x (min v3.0.3) with PSRAM enabled and the following Partition scheme:
 * ESP32-S3 - `8M with spiffs (...)`
 * ESP32 - `Minimal SPIFFS (...)`
 

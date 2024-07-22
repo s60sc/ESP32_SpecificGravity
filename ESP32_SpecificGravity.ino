@@ -9,10 +9,10 @@
 // Connections:
 // MPU6050  ESP32
 // ADO      GND
-// SDA‎ ‎     GPIO 21 (green)
-// SCL‎      ‎GPIO 22 (yellow)
-// VCC‎      3V3 (white)
+// SDA      GPIO 21 (green)
+// SCL      GPIO 22 (yellow)
 // GND      GND (brown)
+// VCC      3V3 (white)
 //
 // Check accelerometer works properly (can be faulty), by checking that 
 // gXYZ is close to 1g, and gX varies between to 0g (horizontal) to +/- 1g (vertical)

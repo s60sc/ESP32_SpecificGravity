@@ -178,7 +178,7 @@ void prepUart() {}
 
 /************************ webServer callbacks *************************/
 
-bool updateAppStatus(const char* variable, const char* value) {
+bool updateAppStatus(const char* variable, const char* value, bool fromUser) {
   // update vars from configs and browser input
   bool res = true;
   int intVal = atoi(value);
