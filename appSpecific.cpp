@@ -290,7 +290,6 @@ AP_ip~~0~T~AP IP Address if not 192.168.4.1
 AP_sn~~0~T~AP subnet
 AP_gw~~0~T~AP gateway
 allowAP~1~0~C~Allow simultaneous AP
-timezone~GMT0~0~T~Timezone string: tinyurl.com/TZstring
 logType~0~99~N~Output log selection
 Auth_Name~~0~T~Optional user name for web page login
 Auth_Pass~~0~T~Optional user name for web page password
