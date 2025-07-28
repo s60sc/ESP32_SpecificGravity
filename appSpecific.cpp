@@ -37,7 +37,7 @@ char SGdata[150];
 
 static void calculateSG() {
   // get data from MPU6050
-  float* mpuData = readMPU6050();
+  float* mpuData = getMPU6050();
   // axis used for pitch is whichever is linear to PETling length
   // generally this will be the X axis
   // get tilt angle (pitch) wrt to horizontal in degrees
@@ -126,7 +126,7 @@ bool SGsetup() {
     updateStatus("save", "1");
   }
   prepPeripherals();
-  if (startI2C()) {
+  if (prepI2C()) {
     // setup battery monitoring 
     float voltage = readVoltage();
     LOG_INF("Battery voltage: %0.1f", voltage);
@@ -199,8 +199,8 @@ bool updateAppStatus(const char* variable, const char* value, bool fromUser) {
   else if (!strcmp(variable, "voltInterval")) voltInterval = intVal;
   else if (!strcmp(variable, "hostInterval")) hostInterval = intVal;
   else if (!strcmp(variable, "wsServerHost")) strcpy(wsServerHost, value);
-  else if (!strcmp(variable, "I2C_SDA")) I2C_SDA = intVal;
-  else if (!strcmp(variable, "I2C_SCL")) I2C_SCL = intVal;
+  else if (!strcmp(variable, "I2Csda")) I2Csda = intVal;
+  else if (!strcmp(variable, "I2Cscl")) I2Cscl = intVal;
   else if (!strcmp(variable, "timeAwake")) timeAwake = intVal;
   else if (!strcmp(variable, "timeAsleep")) timeAsleep = intVal;
   else if (!strcmp(variable, "LED_PIN")) LED_PIN = intVal;
@@ -250,7 +250,7 @@ void buildAppJsonString(bool filter) {
 }
 
 esp_err_t appSpecificWebHandler(httpd_req_t *req, const char* variable, const char* value) {
-  return ESP_OK;
+  return ESP_FAIL;
 }
 
 esp_err_t appSpecificSustainHandler(httpd_req_t* req) {
@@ -307,8 +307,8 @@ voltLow~3~1~N~Warning level for low voltage
 voltInterval~5~1~N~Voltage check interval (mins)
 voltPin~34~1~N~ADC Pin used for battery voltage
 voltUse~1~1~C~Use Voltage check
-I2C_SDA~21~1~N~I2C SDA pin
-I2C_SCL~22~1~N~I2C SCL pin
+I2Csda~21~1~N~I2C SDA pin
+I2Cscl~22~1~N~I2C SCL pin
 wsServerHost~192.168.1.122~0~T~IP address of remote client
 hostInterval~10~0~N~Remote client update interval (secs)
 LED_PIN~5~1~N~Pin for awake blink led

@@ -14,7 +14,6 @@
 /*********************** Fixed defines leave as is ***********************/ 
 /** Do not change anything below here unless you know what you are doing **/
 
-//#define DEV_ONLY // leave commented out
 #define STATIC_IP_OCTAL "123" // dev only
 #define DEBUG_MEM false // leave as false
 #define FLUSH_DELAY 0 // for debugging crashes
@@ -24,7 +23,7 @@
 #define USE_IP6 false
 
 #define APP_NAME "ESP32_SG" // max 15 chars
-#define APP_VER "2.4"
+#define APP_VER "2.5"
 
 #define HTTP_CLIENTS 2 // http, ws
 #define MAX_STREAMS 0
@@ -45,18 +44,21 @@
 #define WARN_ALLOC (16 * 1024) // low free max allocatable free heap block
 #define MAX_ALERT 1024
 
-#define INCLUDE_FTP_HFS false // ftp.cpp (file upload)
-#define INCLUDE_SMTP false    // smtp.cpp (email)
-#define INCLUDE_MQTT false    // mqtt.cpp
-#define INCLUDE_TGRAM false   // telegram.cpp
-#define INCLUDE_CERTS false   // certificates.cpp (https and server certificate checking)
 #define INCLUDE_WEBDAV true   // webDav.cpp (WebDAV protocol)
+#define INCLUDE_PERIPH true   // peripherals.cpp
+#define INCLUDE_I2C true      // periphsI2C.cpp
 
-#define IS_IO_EXTENDER false // must be false except for IO_Extender
-#define EXTPIN 100
+// I2C devices 
+#define USE_SSD1306 false
+#define USE_BMP280 false
+#define USE_MPU6050 true
+#define USE_MPU9250 false
+#define USE DS3231 false
+#define USE_LCD1602 false
+#define USE_DS18B20 false
 
 // to determine if newer data files need to be loaded
-#define CFG_VER 3
+#define CFG_VER 4
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3 
 #define SERVER_STACK_SIZE (1024 * 8)
@@ -89,33 +91,18 @@
 #define SERVO_PRI 1
 #define UART_PRI 1
 #define BATT_PRI 1
-#define IDLEMON_PRI 5
-
-// devices requiring separate libraries
-#define USE_BMP280 false
-#define USE DS3231 false
-#define USE_SSD1306 false
-#define USE_DS18B20 false
-
-// devices not requiring separate libraries
-#define USE_LCD1602 false
-#define USE_PCF8591 false
-#define USE_MPU6050 true
 
 #define FILE_EXT ""
 
+enum stepperModel {BYJ_48, BIPOLAR_8mm};
 
 /******************** Function declarations *******************/
 
 // global app specific functions
 bool SGsetup();
 void SGloop();
-bool checkMPU6050();
-float* readMPU6050();
+float* getMPU6050();
 bool sleepMPU6050(bool doSleep = true);
-float* getBMP280();
-bool checkI2Cdevices(bool showWarn = false);
-bool startI2C();
 void setLamp(uint8_t lampVal);
 void stepperDone();
 
@@ -130,6 +117,3 @@ extern bool voltUse; // true to report on ADC pin eg for for battery
 extern int voltDivider;
 extern float voltLow;
 extern int voltInterval;
-
-extern int I2C_SDA;
-extern int I2C_SCL;

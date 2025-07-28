@@ -3,12 +3,13 @@
 // where tilt angle varies with wort density.
 // Tilt Angle is calculated assuming device only has rotational (not linear) motion
 // Specific Gravity is calculated from the tilt angle with reference to a nth order polynomial 
-// - for this implementation only a first order is used with 2 data points
+// - for this implementation, only a first order is used with 2 data points
 // See README.md for more info.
 //
 // Connections:
 // MPU6050  ESP32
-// ADO      GND
+// INT      n/c // interrupt
+// ADO      3V3 // address select
 // SDA      GPIO 21 (green)
 // SCL      GPIO 22 (yellow)
 // GND      GND (brown)
@@ -39,7 +40,7 @@ void setup() {
 
   // connect wifi or start config AP if router details not available
   startWifi(); 
-  
+
   startWebServer();
   if (strlen(startupFailure)) LOG_WRN("%s", startupFailure);
   else {
@@ -50,5 +51,5 @@ void setup() {
 }
 
 void loop() {
-  if (startedUp) SGloop();
+  startedUp ? SGloop() : delay(1000);
 }
