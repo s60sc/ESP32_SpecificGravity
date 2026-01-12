@@ -1,83 +1,44 @@
 
 // Simple example of ESP32/Arduino host to receive updates 
-// from ESP32_SpecificGravity and display on web page
+// from ESP32_SpecificGravity (SG) app and display on web page
+// In ESP32_SpecificGravity app, under Edit Config / Wifi tab, set Remote Client value to be this app's IP address
 
-// s60sc 2021
+// s60sc 2021, 2026
 
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
-#include "AsyncJson.h"
-#include "time.h"
+#include <WebServer.h>
 #include "SGhostData.h"
 
+WebServer server(80);
+String json = "";
+
 // user definable constants
-static const char* ssid = "";
-static const char* password = "";
-static const IPAddress ipaddr(192, 168, 1, 127); // device static IP address
+static const char* ssid = ""; // user router ssid
+static const char* password = ""; // user router password
+static const IPAddress ipaddr(192, 168, 1, 122); // this app static IP address, required for ESP32_SpecificGravity app access
 static const IPAddress gateway(192, 168, 1, 1); // router
 static const IPAddress subnet(255, 255, 255, 0);
 static const IPAddress DNS(192, 168, 1, 1); // router
-static char timezone[64] = "GMT0BST,M3.5.0/01,M10.5.0/02"; // UK
 
-static AsyncWebServer server(80); 
+#define LED_PIN 2 // blink led, actual pin depends on ESP32 module used
 
-#define LED_PIN 5 // blink led, actual pin depends on ESP32 module used
-#define JSONLEN 100
-static char jsonMessage[JSONLEN+1];
-
-static inline time_t getEpoch() {
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  return tv.tv_sec;
+static void processSGappInput() {
+  // http://192.168.1.122/update?data=%7B%22tilt%22%3A%2248.5%22%2C%22SG%22%3A%221.024%22%2C%22temp%22%3A%220.2%22%2C%22batt%22%3A%224.1%22%2C%22getTime%22%3A%2213:10:41%22%7D
+  json = server.arg("plain");  // raw JSON text
+  server.send(200); 
 }
 
-// return formatted current time
-static void getTOD(char* timestring, size_t strSize) {
-  // get formatted current date and time
-  char timeFormat[] = "%Y-%m-%d %H:%M:%S"; 
-  time_t currEpoch = getEpoch();
-  strftime(timestring, strSize, timeFormat, localtime(&currEpoch));
+static void notFound() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(404, "text/plain", "Not found: " + server.uri());
 }
 
-static void getLocalNTP() {
-  // get current time from NTP server and apply to ESP32
-  const char* ntpServer = "pool.ntp.org";
-  int i = 0;
-  do {
-    configTzTime(timezone, ntpServer);
-    delay(1000);
-  } while (getEpoch() < 10000 && i++ < 5); // try up to 5 times
-  if (getEpoch() > 10000) {
-    char timeFormat[20];
-    getTOD(timeFormat, sizeof(timeFormat));
-    printf("Got current time from NTP: %s\n", timeFormat);
-  }
-  else puts("Unable to sync with NTP");
-}
-
-static void processNodeInputs(AsyncWebServerRequest *request, JsonVariant json) {
-  char timeString[30];
-  getTOD(timeString, sizeof(timeString));
-  
-  int jsonPtr = snprintf(jsonMessage, JSONLEN, "{\"0\":\"%s\"", timeString);
-  // key / val pair is item index into array / new value
-  JsonObject jsonObj = json.as<JsonObject>();
-  for (JsonPair kv : jsonObj) {
-    // iterate thru each json pair
-    jsonPtr += snprintf(jsonMessage + jsonPtr, JSONLEN - jsonPtr, ",\"%s\":\"%s\"", kv.key().c_str(), kv.value().as<const char*>());
-    snprintf(jsonMessage + jsonPtr, JSONLEN - jsonPtr, "}");
-  }
-  request->send(200); 
-}
 static void startWebServer() {
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {request->send(200, "text/html", index_html);});
-  server.on("/refresh", HTTP_GET, [](AsyncWebServerRequest* request) {request->send(200, "application/json", jsonMessage);});
-  server.onNotFound([](AsyncWebServerRequest* request) {request->send(404, "text/plain", "Not found: " + request->url());}); 
-  AsyncCallbackJsonWebHandler* handleAppInput = new AsyncCallbackJsonWebHandler("/appinput", processNodeInputs);
-  server.addHandler(handleAppInput);
-  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*"); // prevent CORS error
+  server.on("/", []() {server.send(200, "text/html", index_html);});
+  server.on("/refresh", []() {server.send(200, "application/json", json);}); // update for browser
+  server.onNotFound(notFound);
+  server.on("/update", processSGappInput); // update from SG app
   server.begin();
 }
 
@@ -85,6 +46,7 @@ void setup() {
   Serial.begin(115200);
   // wifi connection for web
   WiFi.config(ipaddr, gateway, subnet, DNS);
+  Serial.printf("Connect to %s\n", ssid);
   WiFi.begin(ssid, password); 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -92,14 +54,18 @@ void setup() {
   }
   puts("");
   startWebServer();
-  printf("Connected to WiFi network with web server IP: %s\n", WiFi.localIP().toString().c_str());
-  getLocalNTP(); // get time from NTP
+  printf("HTTP server on WiFi network with IP: %s\n", WiFi.localIP().toString().c_str());
   puts("");
 }
 
 void loop() {
+  server.handleClient();
   static bool blinking = true;
-  digitalWrite(LED_PIN, blinking);
-  blinking = !blinking;
-  delay(1000);
+  static uint32_t checkTime = millis();
+  if (millis() - checkTime > 1000) {
+    // blink once a second
+    digitalWrite(LED_PIN, blinking);
+    blinking = !blinking;
+    checkTime = millis();
+  } else delay(2);
 }

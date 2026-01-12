@@ -43,19 +43,19 @@ const char* index_html = R"~(
   <body>
     <table><tr>
       <td>Time Stamp:</td>
-      <td id="0">Waiting</td>
+      <td id="getTime">Waiting</td>
       </tr><tr>
       <th>Specific Gravity</th>
       <th>Temperature</th>
       </tr><tr>
-      <td id="2">Waiting</td>
-      <td id="5">Waiting</td>
+      <td id="SG">Waiting</td>
+      <td id="temp">Waiting</td>
       </tr><tr>
       <th>Tilt Angle</th>
       <th>Voltage</th>
       </tr><tr>
-      <td id="1">Waiting</td>
-      <td id="4">Waiting</td>
+      <td id="tilt">Waiting</td>
+      <td id="batt">Waiting</td>
       </tr>
     </table>
     <script>
