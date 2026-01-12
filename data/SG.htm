@@ -54,7 +54,7 @@
       }
       
       .hidden {
-        display: none
+        display: none;
       }
       
       progress {
@@ -266,12 +266,13 @@
       } 
       
       input[type=number]::-webkit-inner-spin-button {
-        opacity: 1
+        opacity: 1;
       }
       
       input[type="button"]:focus {
         background-color: var(--buttonActive);
       }
+      
       
       /* checkbox slider */
 
@@ -316,6 +317,7 @@
         border:2px solid var(--itemBorder);
         overflow:auto;
         background: var(--inputBackground);
+        white-space: pre-wrap;   /* preserves spaces, tabs, and newlines */
       }
       
       select {
@@ -426,10 +428,10 @@
         <th>Water Angle</th>
         <th>Original Gravity</th>
         </tr><tr>
-        <td id="water">Waiting</td>
+        <td id="waterAngleVal">Waiting</td>
         <td><input type="number" id="OGvalue" class="configItem"/></td>
         </tr><tr>
-        <td><button id="waterAngle" value="1">Set WA</button></td>
+        <td><button id="waterSet" value="1">Set WA</button></td>
         <td><button id="OGset" value="1">Set OG</button></td>
         </tr><tr>
         <td/><td/>
@@ -443,17 +445,6 @@
     <div id="ShowLog" class="tabcontent">
       <br>
       <div class="grid-cols4">
-        <div class="input-group" style="grid-column: span 2">
-          <fieldset> 
-          <legend id="selectLog">Select Log</legend> 
-          <div>
-            <label title="Display RTC RAM log" for="rtcram">RTC RAM</label>
-            <input class="local" id="rtcram" type="radio" name="logType" value="0" checked>
-            <label title="Display Websocket log" for="websock">&nbsp;Websocket</label>
-            <input class="local" id="websock" type="radio" name="logType" value="1">
-          </div>
-          </fieldset>
-        </div>
         <div class="input-group" id="dbg-group" style="align-items: center; grid-column: span 2">
           <label for="dbgVerbose" class="header" title="Set verbose logging">Verbose:</label>
           <div class="switch">
@@ -461,6 +452,13 @@
             <label title="Outputs additional information to log" class="slider" for="dbgVerbose"></label>
           </div>
         </div>
+        <div>
+          <svg>
+            <rect class="buttonRect" tabindex="0"/>
+            <text id="showsys" class="midText">System</text>
+          </svg>
+        </div>
+        <br>
         <div style="grid-column: span 4"><br></div>
         <div>
           <svg>
@@ -562,8 +560,6 @@
       
       let refreshInterval = 5000;
       let appClock = Math.ceil(Date.now() / 1000);
-      const appLogInit = 0;
-      const appHub = '/control?svg=1';
       
       function processStatus(dest, key, value, fromUser = true) {
         // process change to status value
@@ -574,19 +570,18 @@
             document.title = value;
             if (fromUser) sendControl(key, value);
           }
-          else if (key == "alertMsg") showAlert(value);
           else if (key == "clearLog") clearLog();
           else if (key == "refreshLog") getLog();
-          else if (key == "logType") { logType = value; sendControl(key, value); return; }
           else if (key == "reset") saveChanges();
           else if (key == "refreshVal") refreshInterval = value * 1000; 
           else if (key == "clockUTC") { appClock = value; checkTime(value); } 
           else if (key == "sensors") getConfig("01");
           else if (key == "other") getConfig("012");
-          else if (key == "waterAngle") { if (fromUser) sendControl(key, $('#tilt').innerHTML); }
+          else if (key == "waterSet") setWaterAngle();
           else if (key == "resetSG") setReadOnly(0, true);
           else if (key == "start") setReadOnly(1, true);
           else if (key == "startMon") setReadOnly(value, false);
+          else if (key == "waterAngle") { if (value.length > 0) $('#waterAngleVal').innerHTML = value; }
           else if (key == "OGvalue") sendControl("OGval", value);
           else if (key == "OGset") setOG();
           // prevent user entry being overwritten by app refresh
@@ -596,18 +591,18 @@
         }
         else if (dest == CLASS) {}
       }
-      
+
       function setReadOnly(value, fromUser) {
         if (value == 0) {
           // setting up, allow edits
           $('#OGvalue').readOnly = false;
-          enable($('#waterAngle'));
+          enable($('#waterSet'));
           enable($('#OGset'));
           enable($('#start'));
         } else {
           // monitoring started, disable edits
           $('#OGvalue').readOnly = true;
-          disable($('#waterAngle'));
+          disable($('#waterSet'));
           disable($('#OGset'));
           disable($('#start'));
         }
@@ -615,6 +610,11 @@
           sendControl("startMon", value);
           saveChanges();
         }
+      }
+      
+      function setWaterAngle() {
+        sendControl("waterAngle", $('#tilt').innerHTML);
+        $('#waterAngleVal').innerHTML = $('#tilt').innerHTML;
       }
       
       function setOG() {
@@ -632,13 +632,14 @@
       
       // common script config
       const doCustomInit = false;
-      const doInitWebSocket = false;
+      const doInitWebSocket = true;
       const doLoadStatus = true;
       const doRefreshTimer = true;
       const doCustomSync = false;
       const doHeartbeat = false;
+      const doInitSSE = false;
  
-      const scriptFiles = ['/web?common.js', 'C:/MyStuff/Arduino/CommonMaster/Latest/common.js']; 
+      const scriptFiles = ['/web?common.js', '../../CommonMaster/Latest/common.js'];
       for (let i = 0; i < scriptFiles.length; i++) {
         const scriptElement = document.createElement('script');
         scriptElement.src = scriptFiles[i];
