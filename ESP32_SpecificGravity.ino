@@ -21,9 +21,7 @@
 // The battery voltage to be measured needs to go thru a voltage divider comprising 
 // two equal high value resistors to keep voltage below 3V3 at the ADC pin.
 //
-// s60sc 2020
-
-// s60sc 2018, 2023
+// s60sc 2018, 2020, 2023, 2025
 
 #include "appGlobals.h"
 
@@ -39,11 +37,8 @@ void setup() {
 #endif
 
   // connect wifi or start config AP if router details not available
-  startWifi(); 
-
-  startWebServer();
-  if (strlen(startupFailure)) LOG_WRN("%s", startupFailure);
-  else {
+  startNetwork();
+  if (startWebServer()) {
     // start rest of services
     if (SGsetup()) startedUp = true;
     checkMemory();

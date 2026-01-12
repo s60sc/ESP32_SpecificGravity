@@ -31,13 +31,12 @@ float temp = 0;
 static char hostURL[50];
 static bool startMon = false;
 static uint32_t awakeTime;
-#define WAKE_PIN 0 // boot button used to force wake and reset monitoring
 #define uS_TO_S_FACTOR 1000000 // Conversion factor for micro seconds to seconds 
 char SGdata[150];
 
 static void calculateSG() {
   // get data from MPU6050
-  float* mpuData = getMPU6050();
+  float* mpuData = getMPUdata();
   // axis used for pitch is whichever is linear to PETling length
   // generally this will be the X axis
   // get tilt angle (pitch) wrt to horizontal in degrees
@@ -116,7 +115,9 @@ void doDeepSleep() {
   digitalWrite(LED_PIN, 0);
   esp_sleep_enable_timer_wakeup(timeAsleep * 60 * uS_TO_S_FACTOR); // in minutes
   sleepMPU6050();
-  goToSleep(WAKE_PIN, true);
+  wakePin = 0; // boot button used to force wake and reset monitoring
+  wakeLevel = 0;
+  goToSleep(true);
 }
 
 bool SGsetup() {
@@ -159,8 +160,12 @@ void SGloop() {
   delay(1000);
   float voltage = readVoltage();
   calculateSG();
+  char theTime[10];
+  time_t currEpoch = getEpoch(); 
+  strftime(theTime, 9, "%H:%M:%S", localtime(&currEpoch));
   // build json string to send to remote host and local web server
-  snprintf(SGdata, sizeof(SGdata)-1, "{\"tilt\":\"%0.1f\",\"SG\":\"%0.4f\",\"temp\":\"%0.1f\",\"batt\":\"%0.2f\",\"water\":\"%0.1f\",\"getTime\":\"1\",\"sg_rssi\":\"%d dbm\"}", tiltAngle, specificGravity, temp, voltage, dp[0], WiFi.RSSI());
+  snprintf(SGdata, sizeof(SGdata)-1, "{\"tilt\":\"%0.1f\",\"SG\":\"%0.4f\",\"temp\":\"%0.1f\",\"batt\":\"%0.2f\",\"getTime\":\"%s\",\"sg_rssi\":\"%d dbm\"}", tiltAngle, specificGravity, temp, voltage, theTime, WiFi.RSSI());
+  wsAsyncSendJson("ustatus", SGdata); // update SG app browser more frequently
   // check if time to sleep
   if (startMon && (millis()-awakeTime)/1000 > timeAwake) doDeepSleep();
 
@@ -292,7 +297,7 @@ AP_gw~~0~T~AP gateway
 allowAP~1~0~C~Allow simultaneous AP
 logType~0~99~N~Output log selection
 Auth_Name~~0~T~Optional user name for web page login
-Auth_Pass~~0~T~Optional user name for web page password
+Auth_Pass~~0~T~Optional web page password
 wifiTimeoutSecs~30~0~N~WiFi connect timeout (secs)
 formatIfMountFailed~0~2~C~Format file system on failure
 pollRate~1~2~N~Sensor polling rate (secs)

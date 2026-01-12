@@ -18,12 +18,13 @@
 #define DEBUG_MEM false // leave as false
 #define FLUSH_DELAY 0 // for debugging crashes
 #define DBG_ON false // esp debug output
+#define DBG_LVL ESP_LOG_ERROR // level if DBG_ON true: ESP_LOG_ERROR, ESP_LOG_WARN, ESP_LOG_INFO, ESP_LOG_DEBUG, ESP_LOG_VERBOSE
 #define DOT_MAX 50
 #define HOSTNAME_GRP 0
 #define USE_IP6 false
 
 #define APP_NAME "ESP32_SG" // max 15 chars
-#define APP_VER "2.5"
+#define APP_VER "2.6"
 
 #define HTTP_CLIENTS 2 // http, ws
 #define MAX_STREAMS 0
@@ -58,7 +59,7 @@
 #define USE_DS18B20 false
 
 // to determine if newer data files need to be loaded
-#define CFG_VER 4
+#define CFG_VER 5
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3 
 #define SERVER_STACK_SIZE (1024 * 8)
@@ -101,7 +102,7 @@ enum stepperModel {BYJ_48, BIPOLAR_8mm};
 // global app specific functions
 bool SGsetup();
 void SGloop();
-float* getMPU6050();
+float* getMPUdata();
 bool sleepMPU6050(bool doSleep = true);
 void setLamp(uint8_t lampVal);
 void stepperDone();
